@@ -19,6 +19,8 @@ source_domain:
   val_interval:
     rating: "[3,inf)"
   drop_filter_field: True
+  numerical_features: []          # (list) Float feature fields to be embedded
+
 
 target_domain:
   dataset: ml-100k
@@ -37,3 +39,5 @@ target_domain:
   val_interval:
     rating: "[3,inf)"
   drop_filter_field: True
+  numerical_features: []          # (list) Float feature fields to be embedded
+

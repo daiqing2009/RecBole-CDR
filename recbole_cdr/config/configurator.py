@@ -9,6 +9,8 @@ recbole_cdr.config.cd_configurator
 """
 import os
 import copy
+from typing import Literal
+
 from recbole.config.configurator import Config
 from recbole.evaluator import metric_types, smaller_metrics
 from recbole.utils import EvaluatorType, ModelType, InputType
@@ -58,6 +60,7 @@ class CDRConfig(Config):
         """
         self.compatibility_settings()
         self._init_parameters_category()
+        # add domain parameter for CDR
         self.parameters['Dataset'] += ['source_domain', 'target_domain']
         self.yaml_loader = self._build_yaml_loader()
         self.file_config_dict = self._remove_domain_prefix(
@@ -73,7 +76,9 @@ class CDRConfig(Config):
         self._set_default_parameters()
         self._init_device()
         self._set_train_neg_sample_args()
-        self._set_eval_neg_sample_args()
+        self._set_eval_neg_sample_args("valid")
+        self._set_eval_neg_sample_args("test")
+        # check domain for CDR
         self.dataset = self._check_cross_domain()
 
     def _check_cross_domain(self):
@@ -208,16 +213,21 @@ class CDRConfig(Config):
             'split': {'RS': [0.8, 0.1, 0.1]},
             'order': 'RO',
             'group_by': 'user',
-            'mode': 'full'
+             "mode": {"valid": "full", "test": "full"},
         }
         if not isinstance(self.final_config_dict['eval_args'], dict):
             raise ValueError(f"eval_args:[{self.final_config_dict['eval_args']}] should be a dict.")
-        for op_args in default_eval_args:
-            if op_args not in self.final_config_dict['eval_args']:
-                self.final_config_dict['eval_args'][op_args] = default_eval_args[op_args]
 
-        if (self.final_config_dict['eval_args']['mode'] == 'full'
-                and self.final_config_dict['eval_type'] == EvaluatorType.VALUE):
+        default_eval_args.update(self.final_config_dict["eval_args"])
+
+        mode = default_eval_args['mode']
+        # backward compatible
+        if isinstance(mode, str):
+            default_eval_args['mode'] = {'valid': mode, 'test': mode}
+
+        self.final_config_dict["eval_args"] = default_eval_args
+        if (self.final_config_dict["eval_type"] == EvaluatorType.VALUE
+                and "full" in self.final_config_dict["eval_args"]["mode"].values()):
             raise NotImplementedError('Full sort evaluation do not match value-based metrics!')
 
         # training_mode args
@@ -285,6 +295,7 @@ class CDRConfig(Config):
             new_config_obj.final_config_dict[key] = other_config[key]
         return new_config_obj
     
+    # same as super method, why not just use super method? 
     def compatibility_settings(self):
         import numpy as np
         np.bool = np.bool_

@@ -48,6 +48,7 @@ class CrossDomainSingleDataset(Dataset):
         self.field2source = {}
         self.field2id_token = {}
         self.field2token_id = {}
+        self.field2bucketnum = {}
         self.field2seqlen = self.config['seq_len'] or {}
         self.alias = {}
         self._preloaded_weight = {}

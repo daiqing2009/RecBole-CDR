@@ -14,6 +14,8 @@ recbole_cdr.data.utils
 import importlib
 import os
 import pickle
+import warnings
+from typing import Literal
 
 from recbole.data.dataloader import NegSampleEvalDataLoader
 from recbole.data.utils import load_split_dataloaders, save_split_dataloaders, create_samplers
@@ -69,7 +71,7 @@ def create_dataset(config):
 
 
 def data_preparation(config, dataset):
-    """Split the dataset by :attr:`config['eval_args']` and create training, validation and test dataloader.
+    """Split the dataset by :attr:`config['[valid|test]_eval_args']` and create training, validation and test dataloader.
 
     Note:
         If we can load split dataloaders by :meth:`load_split_dataloaders`, we will not create new split dataloaders.
@@ -98,18 +100,18 @@ def data_preparation(config, dataset):
 
         if source_valid_dataset is not None:
             source_train_sampler, source_valid_sampler = create_source_samplers(config, dataset, built_datasets[:2])
-            source_valid_data = get_dataloader(config, 'evaluation', 'source')(config, dataset, source_valid_dataset, source_valid_sampler, shuffle=False)
-            target_valid_data = get_dataloader(config, 'evaluation', 'target')(config, target_valid_dataset, target_valid_sampler, shuffle=False)
+            source_valid_data = get_dataloader(config, 'valid', 'source')(config, dataset, source_valid_dataset, source_valid_sampler, shuffle=False)
+            target_valid_data = get_dataloader(config, 'valid', 'target')(config, target_valid_dataset, target_valid_sampler, shuffle=False)
 
             valid_data = (source_valid_data, target_valid_data)
         else:
             source_train_sampler = CrossDomainSourceSampler('train', dataset, config['train_neg_sample_args']['distribution']).set_phase('train')
-            valid_data = get_dataloader(config, 'evaluation', 'target')(config, target_valid_dataset, target_valid_sampler, shuffle=False)
+            valid_data = get_dataloader(config, 'valid', 'target')(config, target_valid_dataset, target_valid_sampler, shuffle=False)
 
         train_data = get_dataloader(config, 'train', 'target')(config, dataset, source_train_dataset, source_train_sampler,
                                                            target_train_dataset, target_train_sampler, shuffle=True)
 
-        test_data = get_dataloader(config, 'evaluation', 'target')(config, target_test_dataset, target_test_sampler, shuffle=False)
+        test_data = get_dataloader(config, 'test', 'target')(config, target_test_dataset, target_test_sampler, shuffle=False)
 
         if config['save_dataloaders']:
             save_split_dataloaders(config, dataloaders=(train_data, valid_data, test_data))
@@ -128,17 +130,24 @@ def data_preparation(config, dataset):
     return train_data, valid_data, test_data
 
 
-def get_dataloader(config, phase, domain='target'):
+def get_dataloader(config, phase: Literal['train', 'valid', 'test', 'evaluation'] , domain='target'):
     """Return a dataloader class according to :attr:`config` and :attr:`phase`.
 
     Args:
         config (Config): An instance object of Config, used to record parameter information.
-        phase (str): The stage of dataloader. It can only take two values: 'train' or 'evaluation'.
+        phase (str): The stage of dataloader. It can only take 4 values: 'train', 'valid', 'test' or 'evaluation'.
+            Notes: 'evaluation' has been deprecated, please use 'valid' or 'test' instead.
         domain (str): The domain of Evaldataloader. It can only take two values: 'source' or 'target'.
 
     Returns:
         type: The dataloader class that meets the requirements in :attr:`config` and :attr:`phase`.
     """
+    if phase not in ['train', 'valid', 'test', 'evaluation']:
+        raise ValueError("`phase` can only be 'train', 'valid', 'test' or 'evaluation'.")
+    if phase == 'evaluation':
+        phase = 'test'
+        warnings.warn("'evaluation' has been deprecated, please use 'valid' or 'test' instead.", DeprecationWarning)  
+    
     model_type = config['MODEL_TYPE']
     if phase == 'train':
         if model_type == ModelType.CROSSDOMAIN:
@@ -146,11 +155,11 @@ def get_dataloader(config, phase, domain='target'):
     else:
         if domain == 'source':
             return CrossDomainFullSortEvalDataLoader
-        eval_strategy = config['eval_neg_sample_args']['strategy']
-        if eval_strategy in {'none', 'by'}:
-            return NegSampleEvalDataLoader
-        elif eval_strategy == 'full':
+        eval_mode = config["eval_args"]["mode"][phase]
+        if eval_mode == "full":
             return FullSortEvalDataLoader
+        else:
+            return NegSampleEvalDataLoader
 
 
 def create_source_samplers(config, dataset, built_datasets):
@@ -166,15 +175,21 @@ def create_source_samplers(config, dataset, built_datasets):
         tuple:
             - train_sampler (AbstractSampler): The sampler for training.
             - valid_sampler (AbstractSampler): The sampler for validation.
-    """
-    phases = ['train', 'valid']
-    train_neg_sample_args = config['train_neg_sample_args']
-    eval_neg_sample_args = config['eval_neg_sample_args']
+            - test_sampler (AbstractSampler): The sampler for testing.
 
+    """
+    phases = ["train", "valid", "test"]
+    train_neg_sample_args = config['train_neg_sample_args']
+    valid_neg_sample_args = config["valid_neg_sample_args"]
+    test_neg_sample_args = config["test_neg_sample_args"]
+    
     sampler = CrossDomainSourceSampler(phases, dataset, built_datasets, train_neg_sample_args['distribution'])
     train_sampler = sampler.set_phase('train')
 
-    sampler = CrossDomainSourceSampler(phases, dataset, built_datasets, eval_neg_sample_args['distribution'])
+    sampler = CrossDomainSourceSampler(phases, dataset, built_datasets, valid_neg_sample_args['distribution'])
     valid_sampler = sampler.set_phase('valid')
 
-    return train_sampler, valid_sampler
+    sampler = CrossDomainSourceSampler(phases, dataset, built_datasets, test_neg_sample_args['distribution'])
+    test_sampler = sampler.set_phase('test')
+
+    return train_sampler, valid_sampler, test_sampler
