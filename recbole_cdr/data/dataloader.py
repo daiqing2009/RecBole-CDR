@@ -5,6 +5,10 @@
 # @Time   : 2022/4/9
 # @Author : Gaowei Zhang
 # @email  : 1462034631@qq.com
+# UPDATE
+# @Time   : 2024/4/7
+# @Author : David Dai
+# @email  : daix1890@mylaurier.ca
 
 """
 recbole_cdr.data.dataloader
@@ -32,6 +36,7 @@ class OverlapDataloader(AbstractDataLoader):
         shuffle (bool, optional): Whether the dataloader will be shuffled after a round. Defaults to ``False``.
     """
     def __init__(self, config, dataset, sampler=None, shuffle=False):
+        self.sample_size = len(dataset)
         super().__init__(config, dataset, sampler, shuffle=shuffle)
 
     def _init_batch_size_and_step(self):
@@ -39,17 +44,9 @@ class OverlapDataloader(AbstractDataLoader):
         self.step = batch_size
         self.set_batch_size(batch_size)
 
-    @property
-    def pr_end(self):
-        return len(self.dataset)
-
-    def _shuffle(self):
-        self.dataset.shuffle()
-
-    def _next_batch_data(self):
-        cur_data = self.dataset[self.pr:self.pr + self.step]
-        self.pr += self.step
-        return cur_data
+    def collate_fn(self, index):
+        index = np.array(index)
+        return self.datasets[index]
 
 
 class CrossDomainDataloader(AbstractDataLoader):
@@ -78,7 +75,7 @@ class CrossDomainDataloader(AbstractDataLoader):
         self.target_dataset = target_dataset
 
         self.state = CrossDomainDataLoaderState.BOTH
-
+        self.sample_size = len(self.target_dataloader)
         super().__init__(config, dataset, target_sampler, shuffle=shuffle)
         self.dataset.target_domain_dataset = target_dataset
         self.overlap_dataset = self.dataset.overlap_dataset
@@ -87,77 +84,28 @@ class CrossDomainDataloader(AbstractDataLoader):
     def _init_batch_size_and_step(self):
         pass
 
-    def reinit_pr_after_map(self):
-        self.source_dataloader.pr = 0
-        self.target_dataloader.pr = 0
+    # def reinit_pr_after_map(self):
+    #     self.source_dataloader.pr = 0
+    #     self.target_dataloader.pr = 0
 
     def update_config(self, config):
         self.source_dataloader.update_config(config)
         self.target_dataloader.update_config(config)
         self.overlap_dataset.update_config(config)
 
-    def __iter__(self):
+    def collate_fn(self, index):
         if self.state == CrossDomainDataLoaderState.SOURCE:
-            return self.source_dataloader.__iter__()
+            return self.source_dataloader.collate_fn(index)
         elif self.state == CrossDomainDataLoaderState.TARGET:
-            return self.target_dataloader.__iter__()
-        elif self.state == CrossDomainDataLoaderState.BOTH:
-            self.source_dataloader.__iter__()
-            self.target_dataloader.__iter__()
-            return self
+            return self.target_dataloader.collate_fn(index)
         elif self.state == CrossDomainDataLoaderState.OVERLAP:
-            return self.overlap_dataloader.__iter__()
-
-    def _shuffle(self):
-        pass
-
-    def __next__(self):
-        if self.state == CrossDomainDataLoaderState.SOURCE and self.source_dataloader.pr >= self.source_dataloader.pr_end:
-            self.target_dataloader.pr = 0
-            self.source_dataloader.pr = 0
-            raise StopIteration()
-        if self.state == CrossDomainDataLoaderState.TARGET or self.state == CrossDomainDataLoaderState.BOTH:
-            if self.target_dataloader.pr >= self.target_dataloader.pr_end:
-                self.target_dataloader.pr = 0
-                self.source_dataloader.pr = 0
-                raise StopIteration()
-        if self.state == CrossDomainDataLoaderState.OVERLAP and self.overlap_dataloader.pr >= self.overlap_dataloader.pr_end:
-            self.overlap_dataloader.pr = 0
-            raise StopIteration()
-        return self._next_batch_data()
-
-    def __len__(self):
-        if self.state == CrossDomainDataLoaderState.SOURCE:
-            return len(self.source_dataloader)
-        elif self.state == CrossDomainDataLoaderState.TARGET:
-            return len(self.target_dataloader)
-        elif self.state == CrossDomainDataLoaderState.BOTH:
-            return len(self.target_dataloader)
-        elif self.state == CrossDomainDataLoaderState.OVERLAP:
-            return len(self.overlap_dataloader)
-
-    @property
-    def pr_end(self):
-        if self.state == CrossDomainDataLoaderState.SOURCE:
-            return self.source_dataloader.pr_end
-        elif self.state == CrossDomainDataLoaderState.OVERLAP:
-            return self.overlap_dataloader.pr_end
-        else:
-            return self.target_dataloader.pr_end
-
-    def _next_batch_data(self):
-        if self.state == CrossDomainDataLoaderState.SOURCE:
-            return self.source_dataloader.__next__()
-        elif self.state == CrossDomainDataLoaderState.TARGET:
-            return self.target_dataloader.__next__()
-        elif self.state == CrossDomainDataLoaderState.OVERLAP:
-            return self.overlap_dataloader.__next__()
+            return self.overlap_dataloader.collate_fn(index)
         else:
             try:
-                source_data = self.source_dataloader.__next__()
+                source_data = self.source_dataloader.collate_fn(index)
             except StopIteration:
-                source_data = self.source_dataloader.__next__()
-            target_data = self.target_dataloader.__next__()
+                source_data = self.source_dataloader.collate_fn(index)
+            target_data = self.target_dataloader.collate_fn(index)
             target_data.update(source_data)
             return target_data
 
@@ -175,9 +123,17 @@ class CrossDomainDataloader(AbstractDataLoader):
         """
         if state not in set(CrossDomainDataLoaderState):
             raise NotImplementedError(f'Cross Domain data loader has no state named [{state}].')
-        if self.source_dataloader.pr != 0 or self.target_dataloader.pr != 0:
-            raise PermissionError('Cannot change dataloader\'s state within an epoch')
+        # if self.source_dataloader.pr != 0 or self.target_dataloader.pr != 0:
+        #     raise PermissionError('Cannot change dataloader\'s state within an epoch')
         self.state = state
+        if self.state == CrossDomainDataLoaderState.SOURCE:
+            self.sample_size = len(self.source_dataloader)
+        elif self.state == CrossDomainDataLoaderState.TARGET:
+            self.sample_size = len(self.target_dataloader)
+        elif self.state == CrossDomainDataLoaderState.BOTH:
+            self.sample_size = len(self.target_dataloader)
+        elif self.state == CrossDomainDataLoaderState.OVERLAP:
+            self.sample_size = len(self.overlap_dataloader)
 
     def get_model(self, model):
         """Let the dataloader get the model, used for dynamic sampling.
@@ -233,8 +189,9 @@ class CrossDomainFullSortEvalDataLoader(FullSortEvalDataLoader):
         self.dataset = source_dataset
         self.sampler = sampler
         self.batch_size = self.step = self.model = None
+        self.sample_size = len(self.user_df)
+        # TODO: add warning if shuffle is True
         self.shuffle = shuffle
-        self.pr = 0
         self._init_batch_size_and_step()
 
     def _set_user_property(self, uid, used_item, positive_item):

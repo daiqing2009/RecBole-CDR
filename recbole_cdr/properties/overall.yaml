@@ -18,18 +18,21 @@ shuffle: True                   # (bool) Whether or not to shuffle the training 
 
 # training settings
 train_epochs: ["BOTH:300"]
-train_batch_size: 2048
-learner: adam
-learning_rate: 0.001
+train_batch_size: 2048          # (int) The training batch size.
+learner: adam                   # (str) The name of used optimizer.
+learning_rate: 0.001            # (float) Learning rate.
 neg_sampling:
   uniform: 1
-eval_step: 1
-stopping_step: 10
-clip_grad_norm: ~
+eval_step: 1                    # (int) The number of training epochs before an evaluation on the valid dataset.
+stopping_step: 10               # (int) The threshold for validation-based early stopping.
+clip_grad_norm: ~               # (dict) The args of clip_grad_norm_ which will clip gradient norm of model. 
 # clip_grad_norm:  {'max_norm': 5, 'norm_type': 2}
-weight_decay: 0.0
-loss_decimal_place: 4
-require_pow: False
+weight_decay: 0.0               # (float) The weight decay value (L2 penalty) for optimizers.
+loss_decimal_place: 4           # (int) The decimal place of training loss.
+require_pow: False              # (bool) Whether or not to perform power operation in EmbLoss.
+enable_amp: False               # (bool) Whether or not to use mixed precision training.
+enable_scaler: False            # (bool) Whether or not to use GradScaler in mixed precision training.
+transform: ~                    # (str) The transform operation for batch data process.
 
 # evaluation settings
 eval_args:                      # (dict) 4 keys: group_by, order, split, and mode

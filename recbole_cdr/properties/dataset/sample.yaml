@@ -11,7 +11,7 @@ source_domain:
   RATING_FIELD: rating
   TIME_FIELD: timestamp
   NEG_PREFIX: neg_
-  LABEL_FIELD: label
+  LABEL_FIELD: rating
   load_col:
     inter: [user_id, item_id, rating]
   user_inter_num_interval: "[5,inf)"
@@ -31,7 +31,7 @@ target_domain:
   RATING_FIELD: rating
   TIME_FIELD: timestamp
   NEG_PREFIX: neg_
-  LABEL_FIELD: label
+  LABEL_FIELD: rating
   load_col:
     inter: [user_id, item_id, rating]
   user_inter_num_interval: "[5,inf)"

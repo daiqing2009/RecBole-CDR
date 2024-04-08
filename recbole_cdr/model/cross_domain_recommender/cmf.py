@@ -2,6 +2,10 @@
 # @Time   : 2022/3/8
 # @Author : Zihan Lin
 # @Email  : zhlin@ruc.edu.cn
+# UPDATE
+# @Time   : 2024/4/7
+# @Author : David Dai
+# @email  : daix1890@mylaurier.ca
 
 r"""
 CMF
@@ -42,8 +46,9 @@ class CMF(CrossDomainRecommender):
         self.user_embedding = nn.Embedding(self.total_num_users, self.embedding_size)
         self.item_embedding = nn.Embedding(self.total_num_items, self.embedding_size)
         self.sigmoid = nn.Sigmoid()
-        self.loss = nn.BCELoss()
-
+        # self.loss = nn.BCELoss()
+        self.loss = nn.BCEWithLogitsLoss()
+        
         self.source_reg_loss = EmbLoss()
         self.target_reg_loss = EmbLoss()
 
@@ -76,7 +81,7 @@ class CMF(CrossDomainRecommender):
         user_e = self.get_user_embedding(user)
         item_e = self.get_item_embedding(item)
 
-        return self.sigmoid(torch.mul(user_e, item_e).sum(dim=1))
+        return torch.mul(user_e, item_e).sum(dim=0)
 
     def calculate_loss(self, interaction):
         source_user = interaction[self.SOURCE_USER_ID]
@@ -102,7 +107,7 @@ class CMF(CrossDomainRecommender):
         user = interaction[self.TARGET_USER_ID]
         item = interaction[self.TARGET_ITEM_ID]
         p = self.forward(user, item)
-        return p
+        return self.sigmoid(p)
 
     def full_sort_predict(self, interaction):
         user = interaction[self.TARGET_USER_ID]
