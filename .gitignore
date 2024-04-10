@@ -17,3 +17,4 @@ saved/
 docs/build/
 wandb/*
 .DS_Store
+*.bak

@@ -2,6 +2,9 @@
 # @Time   : 2022/3/22
 # @Author : Zihan Lin
 # @Email  : zhlin@ruc.edu.cn
+# @Time   : 2024/4/7
+# @Author : David Dai
+# @email  : daiqing2009@gmail.com
 
 r"""
 DTCDR
@@ -100,14 +103,14 @@ class DTCDR(CrossDomainRecommender):
         self.source_sigmoid = nn.Sigmoid()
         self.target_sigmoid = nn.Sigmoid()
 
-        self.loss = nn.BCELoss()
+        self.loss = nn.BCEWithLogitsLoss()
         self.apply(xavier_normal_initialization)
 
     def forward(self, user, item):
         user_e = self.get_user_embedding(user)
         item_e = self.get_item_embedding(item)
 
-        return self.sigmoid(torch.mul(user_e, item_e).sum(dim=1))
+        return torch.mul(user_e, item_e).sum(dim=1)
 
     def neumf_forward(self, user, item, domain='source'):
         user_source_e = self.source_user_embedding(user)
@@ -119,9 +122,9 @@ class DTCDR(CrossDomainRecommender):
         item_e = torch.maximum(item_source_e, item_target_e)
 
         if domain == 'source':
-            output = self.source_sigmoid(self.source_predict_layer(self.source_mlp_layers(torch.cat((user_e, item_e), -1))))
+            output = self.source_predict_layer(self.source_mlp_layers(torch.cat((user_e, item_e), -1)))
         else:
-            output = self.target_sigmoid(self.target_predict_layer(self.target_mlp_layers(torch.cat((user_e, item_e), -1))))
+            output = self.target_predict_layer(self.target_mlp_layers(torch.cat((user_e, item_e), -1)))
         return output.squeeze(-1)
 
     def construct_matrix(self, input_tensor, history_id_matrix, history_value_matrix, length):
@@ -165,12 +168,12 @@ class DTCDR(CrossDomainRecommender):
             user_e = self.source_user_fc_layers(user_e)
             item_e = self.source_item_fc_layers(item_e)
             output = torch.mul(user_e, item_e).sum(dim=1)
-            output = self.source_sigmoid(output)
+            # output = self.source_sigmoid(output)
         else:
             user_e = self.target_user_fc_layers(user_e)
             item_e = self.target_item_fc_layers(item_e)
             output = torch.mul(user_e, item_e).sum(dim=1)
-            output = self.target_sigmoid(output)
+            # output = self.target_sigmoid(output)
             
         return output
 
@@ -205,7 +208,7 @@ class DTCDR(CrossDomainRecommender):
         item = interaction[self.TARGET_ITEM_ID]
         if self.base_model == 'NeuMF':
             output = self.neumf_forward(user, item, 'target')
-            return output
+            return self.target_sigmoid(output)
         else:
             output = self.dmf_forward(user, item, 'target')
-            return output
+            return self.target_sigmoid(output)

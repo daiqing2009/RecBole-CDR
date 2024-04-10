@@ -64,7 +64,7 @@ class BiTGCF(CrossDomainRecommender):
             self.target_item_embedding.weight[self.target_num_items:].fill_(0)
 
         self.dropout = nn.Dropout(p=self.drop_rate)
-        self.loss = nn.BCELoss()
+        self.loss = nn.BCEWithLogitsLoss()
         self.sigmoid = nn.Sigmoid()
         self.reg_loss = EmbLoss()
 
@@ -224,7 +224,7 @@ class BiTGCF(CrossDomainRecommender):
         target_i_embeddings = target_item_all_embeddings[target_item]
 
         # calculate BCE Loss in source domain
-        source_output = self.sigmoid(torch.mul(source_u_embeddings, source_i_embeddings).sum(dim=1))
+        source_output = torch.mul(source_u_embeddings, source_i_embeddings).sum(dim=0)
         source_bce_loss = self.loss(source_output, source_label)
 
         # calculate Reg Loss in source domain
@@ -236,7 +236,7 @@ class BiTGCF(CrossDomainRecommender):
         losses.append(source_loss)
 
         # calculate BCE Loss in target domain
-        target_output = self.sigmoid(torch.mul(target_u_embeddings, target_i_embeddings).sum(dim=1))
+        target_output = torch.mul(target_u_embeddings, target_i_embeddings).sum(dim=0)
         target_bce_loss = self.loss(target_output, target_label)
 
         # calculate Reg Loss in target domain

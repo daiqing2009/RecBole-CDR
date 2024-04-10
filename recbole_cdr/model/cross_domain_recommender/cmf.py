@@ -5,7 +5,7 @@
 # UPDATE
 # @Time   : 2024/4/7
 # @Author : David Dai
-# @email  : daix1890@mylaurier.ca
+# @email  : daiqing2009@gmail.com
 
 r"""
 CMF
