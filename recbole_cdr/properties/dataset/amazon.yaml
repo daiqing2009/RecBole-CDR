@@ -3,10 +3,10 @@ gpu_id: 0
 state: INFO
 field_separator: "\t"             # (str) Separator of different columns in atomic files.
 source_domain:
-  dataset: amazon-books         # (str) Name of the dataset, refer to https://recbole.io/dataset_list.html, the dataset with name(case-sensitive) in the list will be downloaded automatically.
-  # data_path: 'dataset_downloaded/Amazon_Books'
-  # dataset: amazon-movies-tv 
-  # data_path: 'dataset_downloaded/Amazon_Movies_TV'
+  # dataset: amazon-books-overlap         # (str) Name of the dataset, refer to https://recbole.io/dataset_list.html, the dataset with name(case-sensitive) in the list will be downloaded automatically.
+  # data_path: 'dataset/Amazon_Books'
+  dataset: amazon-movies-tv   # (str) Name of the dataset, much smaller than amazon-books use this one if runing on your local machine
+  data_path: 'dataset/amazon-movies-tv'
 
   # Basic Information
   seq_separator: " "              # (str) Separator inside the sequence features.
@@ -29,8 +29,8 @@ source_domain:
   val_interval: ~                  # (dict) Filter inter by values in {value field (str): interval (str)}.
 
 target_domain:
-  dataset: amazon-digital-music   # (str) Name of the dataset, refer to https://recbole.io/dataset_list.html, the dataset with name(case-sensitive) in the list will be downloaded automatically.
-  # data_path: 'dataset_downloaded/Amazon_Digital_Music'
+  dataset: amazon-video-games   # (str) Name of the dataset, refer to https://recbole.io/dataset_list.html, the dataset with name(case-sensitive) in the list will be downloaded automatically.
+  data_path: 'dataset/amazon-video-games'
   # Basic Information
   seq_separator: " "              # (str) Separator inside the sequence features.
   USER_ID_FIELD: user_id          # (str) Field name of user ID feature.
